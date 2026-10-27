@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holdover Time Calculator | GNSS-Denied Timing Error Budget (OCXO, Rubidium)</title>
+<meta name="description" content="Free online holdover calculator for GNSS-denied timing. Enter initial frequency offset, oscillator aging rate and run time to get the accumulated time error TE(t) = Δf₀·t + aging·t²/2, with typical OCXO / rubidium / caesium aging presets, time-error curve and threshold times.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Holdover Time Calculator",
+  "url": "https://xiaokeni2.github.io/holdover-time-calculator/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any",
+  "author": {
+    "@type": "Organization",
+    "name": "BRIDZA",
+    "url": "https://rf.bridza.com/"
+  },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Calculate the accumulated time error of an oscillator running free in GNSS holdover from initial frequency offset and aging rate, with OCXO / rubidium / caesium aging presets and a time-error curve. Free GNSS-denied timing tool by BRIDZA."
+}
+</script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --ok: #3fb950;
+    --warn: #d29922;
+    --error: #f85149;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    padding: 0 16px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  header { padding: 20px 0 8px; border-bottom: 1px solid var(--border); }
+  header .brand { color: var(--accent); font-family: var(--mono); font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+  h1 { font-size: 24px; margin: 12px 0 6px; color: #f0f6fc; }
+  .intro { color: var(--muted); font-size: 15px; margin-bottom: 8px; }
+  main { padding: 20px 0 32px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); padding: 20px; margin-bottom: 20px; }
+  .panel h2 { font-size: 16px; color: var(--accent); margin-bottom: 14px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    padding: 10px 12px;
+    outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field .unit { color: var(--muted); font-size: 12px; font-family: var(--mono); margin-top: 4px; display: block; }
+  .presets { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .presets button {
+    background: var(--bg); border: 1px solid var(--border); color: var(--accent);
+    font-family: var(--mono); font-size: 12px; padding: 7px 10px; cursor: pointer;
+  }
+  .presets button:hover { border-color: var(--accent); }
+  .results { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); }
+  .results .metric { font-family: var(--mono); font-size: 14px; margin: 5px 0; }
+  .results .metric b { color: var(--accent); font-weight: 600; font-size: 17px; }
+  .thresholds { margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 560px) { .thresholds { grid-template-columns: 1fr; } }
+  .thresholds .th { border: 1px solid var(--border); background: var(--bg); padding: 10px; font-family: var(--mono); font-size: 12.5px; }
+  .thresholds .th b { display: block; color: var(--ok); font-size: 14px; margin-top: 3px; }
+  .curve { margin-top: 16px; }
+  .curve svg { width: 100%; height: auto; display: block; background: var(--bg); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: right; }
+  th { background: #1c2129; color: var(--accent); font-weight: 600; }
+  td:first-child, th:first-child { text-align: left; }
+  .formulas { font-family: var(--mono); font-size: 14px; color: var(--text); }
+  .formulas li { margin: 6px 0 6px 18px; }
+  .prose p, .prose li { font-size: 14.5px; color: var(--text); }
+  .prose ul, .prose ol { margin: 8px 0 8px 22px; }
+  .prose li { margin: 5px 0; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 14px; }
+  footer { border-top: 1px solid var(--border); padding: 16px 0 28px; font-size: 13px; color: var(--muted); }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer ul { list-style: none; margin-top: 8px; }
+  footer li { margin: 4px 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="brand">BRIDZA · RF Engineering Tools</div>
+  <h1>Holdover Time Calculator — GNSS-Denied Timing</h1>
+  <p class="intro">Estimate how far a free-running oscillator drifts when GNSS timing is denied: enter the initial frequency offset, the aging rate and the run time, and get the accumulated time error TE(t) = Δf₀·t + ½·aging·t², plus how long until a given time-error threshold is crossed.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Holdover calculator">
+    <h2>Calculator</h2>
+    <div class="grid">
+      <div class="field">
+        <label for="y0">Initial frequency offset Δf₀</label>
+        <input type="number" id="y0" inputmode="decimal" step="any" placeholder="e.g. 1.0" autocomplete="off">
+        <span class="unit">ppb (parts per billion, 1 ppb = 1×10⁻⁹) — frequency error at holdover start, sign = fast(+)/slow(−)</span>
+      </div>
+      <div class="field">
+        <label for="aging">Aging rate |da/dt|</label>
+        <input type="number" id="aging" inputmode="decimal" step="any" min="0" placeholder="e.g. 0.1" autocomplete="off">
+        <span class="unit">ppb per day — use a preset button below for typical values</span>
+      </div>
+      <div class="field">
+        <label for="tval">Run time t (holdover duration)</label>
+        <input type="number" id="tval" inputmode="decimal" step="any" min="0" placeholder="e.g. 24" autocomplete="off">
+        <span class="unit">time units selected below</span>
+      </div>
+      <div class="field">
+        <label for="tunit">Time unit</label>
+        <select id="tunit">
+          <option value="hour">hours</option>
+          <option value="day" selected>days</option>
+        </select>
+        <span class="unit">holdover duration</span>
+      </div>
+    </div>
+
+    <div class="presets" aria-label="Typical aging rate presets">
+      <button type="button" data-a="0.1">OCXO ≈ 1×10⁻¹⁰/day</button>
+      <button type="button" data-a="0.00167">Rubidium ≈ 5×10⁻¹¹/month</button>
+      <button type="button" data-a="0.00000027">Caesium beam ≈ 1×10⁻¹²/lifetime</button>
+      <button type="button" data-a="10">TCXO ≈ 1×10⁻⁸/day</button>
+    </div>
+    <p class="note">Preset buttons fill equivalent ppb/day values. These are <em>typical order-of-magnitude</em> figures: a good OCXO ages ≈ 1×10⁻¹⁰ per day after warm-up; rubidium standards drift ≈ 5×10⁻¹¹ per month (≈ 1.7×10⁻¹²/day); a caesium beam tube drifts ≈ 1×10⁻¹² over its whole service life (≈ 10 years, ≈ 2.7×10⁻¹⁶/day); typical TCXOs age ≈ 1×10⁻⁸ per day. Verify against the actual datasheet and subtract the temperature term for real installations.</p>
+
+    <div class="results">
+      <div class="metric">Frequency offset at t: <b id="ft">—</b></div>
+      <div class="metric">Accumulated time error TE(t): <b id="te">—</b></div>
+      <div class="thresholds">
+        <div class="th">Time to 1 μs error<b id="th1">—</b></div>
+        <div class="th">Time to 1 ms error<b id="th2">—</b></div>
+        <div class="th">Time to 10 ms error<b id="th3">—</b></div>
+      </div>
+      <div class="curve" id="curveBox"></div>
+      <div id="status" role="alert" style="min-height:18px;margin-top:10px;font-family:var(--mono);font-size:13px;color:var(--error);"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Formulas">
+    <h2>Formulas</h2>
+    <ul class="formulas">
+      <li>Frequency offset at time t:&nbsp; Δf(t) = Δf₀ + a·t_day&nbsp;&nbsp;(fractional, ppb)</li>
+      <li>Accumulated time error:&nbsp; TE(t) = Δf₀·t_s + a·t_s² / (2·86400)&nbsp;&nbsp;(seconds)</li>
+      <li>&nbsp;&nbsp;&nbsp;where t_s = t in seconds, Δf₀ in fractional units (1 ppb = 10⁻⁹), a in fractional units per day</li>
+      <li>Time to threshold TE<sub>th</sub>:&nbsp; t = ( −Δf₀ + √(Δf₀² + 2·a·TE<sub>th</sub>·/86400) ) / (a/86400)&nbsp; for a &gt; 0</li>
+    </ul>
+    <p class="note">The linear term is the initial frequency error integrated over time; the quadratic term is the accumulated aging. The model assumes constant temperature and linear aging — real oscillators also carry a temperature coefficient (e.g. 5×10⁻⁹ per °C for a mid-grade OCXO, which can dominate an uncontrolled shelter) and aging is not perfectly linear after retrace. TE sign: positive means the local clock is running fast relative to true time.</p>
+  </section>
+
+  <section class="panel prose" aria-label="What is holdover">
+    <h2>What is holdover?</h2>
+    <p>A GNSS-disciplined clock continuously steers a local oscillator to GNSS time. When the GNSS signal disappears — antenna failure, jamming, spoofing detection shutdown, indoor or urban-canyon outage — the oscillator "holds over": it free-runs on its own stability, and time error accumulates as the product of frequency error and elapsed time. Holdover specifications (e.g. "&lt; 1 μs per 24 h" or "&lt; 10 μs per day") are among the most important figures for telecom boundary clocks, cellular TDD networks, phasor measurement units and defense platforms.</p>
+  </section>
+
+  <section class="panel prose" aria-label="GNSS jamming and spoofing background">
+    <h2>Why GNSS-denied timing matters: jamming &amp; spoofing</h2>
+    <ul>
+      <li><strong>Jamming</strong> raises the noise floor so receivers cannot track satellites. Regions with chronic GPS L1 interference are well documented; a jammed site falls into holdover without warning unless monitored.</li>
+      <li><strong>Spoofing</strong> is worse: forged signals look valid and can silently shift a network's time. Robust receivers detect anomalies and deliberately enter holdover — turning oscillator quality into the last line of defense.</li>
+      <li><strong>Holdover budget drives hardware cost.</strong> The required holdover duration (minutes for urban handset use, 24 h+ for telecom nodes, days for isolated defense sites) selects the oscillator class: TCXO → OCXO → rubidium → caesium/maser. This calculator quantifies that trade.</li>
+    </ul>
+  </section>
+
+  <section class="panel prose" aria-label="Improving holdover">
+    <h2>How to extend holdover capability</h2>
+    <ol>
+      <li><strong>Start clean.</strong> Pre-align the frequency before GNSS loss: a well-disciplined OCXO entering holdover with |Δf₀| &lt; 0.1 ppb buys 10× more time than one at 1 ppb. Long averaging time constants before the outage pay off here.</li>
+      <li><strong>Control temperature.</strong> Aging presets assume a stable oven. A shelter that swings 10 °C can add tens of ppb through the OCXO temperature coefficient — often dominating aging. Insulate, heat, or measure and compensate.</li>
+      <li><strong>Dual-source architectures.</strong> Pair a rubidium or high-grade OCXO with a second reference (e.g. a cesium standard or eLoran/other PNT source) and cross-check during holdover; switch or correct when sources disagree beyond a threshold.</li>
+      <li><strong>Know your aging curve.</strong> Aging improves after burn-in (weeks–months). Use the device's datasheet daily-aging figure for steady state, not the initial turn-on drift.</li>
+    </ol>
+  </section>
+</main>
+
+<footer>
+  <div>Open-source tool · <a href="https://github.com/xiaokeni2/holdover-time-calculator">GitHub repository</a></div>
+  <ul>
+    <li><a href="https://rf.bridza.com/">BRIDZA RF — OCXO, rubidium and timing component selection</a></li>
+    <li><a href="https://rf.bridza.com/resources/comparisons/br012.html">Standalone oscillator vs GNSS-disciplined holdover analysis</a></li>
+    <li><a href="https://rf.bridza.com/products/stm-rb-nc.html">STM-RB-NC rubidium oscillator module</a></li>
+    <li><a href="https://rf.bridza.com/products/bd1024-c.html">BD1024-C GNSS-disciplined timing board</a></li>
+    <li><a href="https://bridza.com/">BRIDZA — company overview</a></li>
+  </ul>
+  <div style="margin-top:10px;">© BRIDZA · Free client-side engineering tool, no data leaves your browser.</div>
+</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var y0El = document.getElementById("y0");
+  var agingEl = document.getElementById("aging");
+  var tvalEl = document.getElementById("tval");
+  var tunitEl = document.getElementById("tunit");
+  var ftEl = document.getElementById("ft");
+  var teEl = document.getElementById("te");
+  var th1El = document.getElementById("th1");
+  var th2El = document.getElementById("th2");
+  var th3El = document.getElementById("th3");
+  var statusEl = document.getElementById("status");
+  var curveBox = document.getElementById("curveBox");
+
+  function fmtDur(sec) {
+    if (!isFinite(sec) || sec <= 0) return "—";
+    if (sec < 120) return sec.toFixed(1) + " s";
+    if (sec < 7200) return (sec / 60).toFixed(1) + " min";
+    if (sec < 172800) return (sec / 3600).toFixed(2) + " h";
+    if (sec < 3.156e7) return (sec / 86400).toFixed(2) + " days";
+    return (sec / 3.156e7).toFixed(2) + " years";
+  }
+  function fmtTE(sec) {
+    var a = Math.abs(sec);
+    if (a < 1e-6) return (sec * 1e9).toFixed(2) + " ns";
+    if (a < 1e-3) return (sec * 1e6).toFixed(2) + " μs";
+    if (a < 1) return (sec * 1e3).toFixed(2) + " ms";
+    if (a < 86400) return sec.toFixed(3) + " s";
+    return (sec / 3600).toFixed(3) + " h";
+  }
+  function timeToThreshold(y0f, aPerS, teTh) {
+    // solve (a/2) t^2 + y0 t - teTh = 0 for t >= 0 using |TE|
+    if (aPerS === 0) {
+      return y0f === 0 ? Infinity : teTh / Math.abs(y0f);
+    }
+    var disc = y0f * y0f + 2 * aPerS * teTh;
+    if (disc < 0) return Infinity;
+    var t1 = (-Math.abs(y0f) + Math.sqrt(disc)) / aPerS;
+    var t2 = (Math.abs(y0f) + Math.sqrt(disc)) / aPerS;
+    var cands = [t1, t2].filter(function (t) { return isFinite(t) && t > 0; });
+    if (!cands.length) return Infinity;
+    return Math.min.apply(null, cands);
+  }
+
+  function svgCurve(points, tDays) {
+    var W = 720, H = 240, padL = 74, padR = 16, padT = 14, padB = 34;
+    var n = points.length;
+    var ymax = 0;
+    for (var i = 0; i < n; i++) ymax = Math.max(ymax, Math.abs(points[i][1]));
+    if (ymax <= 0) ymax = 1;
+    ymax *= 1.08;
+    var xmax = Math.max(tDays, 1e-9);
+    function X(t) { return padL + (t / xmax) * (W - padL - padR); }
+    function Y(v) { return H - padB - ((v + ymax) / (2 * ymax)) * (H - padT - padB); }
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Accumulated time error versus holdover time">';
+    s += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#0d1117"/>';
+    s += '<line x1="' + padL + '" y1="' + (padT) + '" x2="' + padL + '" y2="' + (H - padB) + '" stroke="#30363d"/>';
+    s += '<line x1="' + padL + '" y1="' + Y(0) + '" x2="' + (W - padR) + '" y2="' + Y(0) + '" stroke="#30363d"/>';
+    for (var g = 1; g <= 4; g++) {
+      var gy = padT + g * (H - padT - padB) / 4;
+      s += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (W - padR) + '" y2="' + gy + '" stroke="#21262d"/>';
+    }
+    s += '<text x="' + (padL - 6) + '" y="' + (Y(ymax) + 4) + '" fill="#8b949e" font-size="11" font-family="monospace" text-anchor="end">+' + fmtTE(ymax) + '</text>';
+    s += '<text x="' + (padL - 6) + '" y="' + (Y(0) + 4) + '" fill="#8b949e" font-size="11" font-family="monospace" text-anchor="end">0</text>';
+    s += '<text x="' + (padL - 6) + '" y="' + (Y(-ymax) + 4) + '" fill="#8b949e" font-size="11" font-family="monospace" text-anchor="end">-' + fmtTE(ymax) + '</text>';
+    var d = "";
+    for (var j = 0; j < n; j++) {
+      d += (j === 0 ? "M" : "L") + X(points[j][0]).toFixed(1) + "," + Y(points[j][1]).toFixed(1);
+    }
+    s += '<path d="' + d + '" fill="none" stroke="#58a6ff" stroke-width="2"/>';
+    s += '<text x="' + (W / 2) + '" y="' + (H - 8) + '" fill="#8b949e" font-size="12" font-family="monospace" text-anchor="middle">holdover time (days, 0 → ' + (tDays >= 100 ? tDays.toFixed(0) : +tDays.toFixed(2)) + ')</text>';
+    s += '<text x="14" y="' + (H / 2) + '" fill="#8b949e" font-size="12" font-family="monospace" text-anchor="middle" transform="rotate(-90 14 ' + (H / 2) + ')">TE(t)</text>';
+    s += '</svg>';
+    return s;
+  }
+
+  function calc() {
+    var y0ppb = parseFloat(y0El.value);
+    var aPpbDay = Math.abs(parseFloat(agingEl.value));
+    var tv = parseFloat(tvalEl.value);
+    var unit = tunitEl.value;
+    statusEl.textContent = "";
+
+    if (isNaN(y0ppb) && isNaN(aPpbDay)) {
+      ftEl.textContent = "—"; teEl.textContent = "—";
+      th1El.textContent = "—"; th2El.textContent = "—"; th3El.textContent = "—";
+      curveBox.innerHTML = "";
+      return;
+    }
+    if (isNaN(y0ppb)) y0ppb = 0;
+    if (isNaN(aPpbDay)) aPpbDay = 0;
+    if (isNaN(tv) || tv < 0) {
+      statusEl.textContent = "Enter a valid, non-negative run time.";
+      return;
+    }
+    var tDays = unit === "hour" ? tv / 24 : tv;
+    var tSec = tDays * 86400;
+    var y0f = y0ppb * 1e-9;          // fractional
+    var aFracDay = aPpbDay * 1e-9;   // fractional per day
+    var aPerS = aFracDay / 86400;    // fractional per second
+
+    var fT = y0f + aFracDay * tDays; // fractional
+    ftEl.textContent = (fT >= 0 ? "+" : "−") + Math.abs(fT / 1e-9).toPrecision(4) + " ppb (" + (fT >= 0 ? "fast" : "slow") + ")";
+
+    var te = y0f * tSec + aPerS * tSec * tSec / 2; // seconds
+    teEl.textContent = fmtTE(te) + (te >= 0 ? " (fast)" : " (slow)");
+
+    th1El.textContent = fmtDur(timeToThreshold(y0f, aPerS, 1e-6));
+    th2El.textContent = fmtDur(timeToThreshold(y0f, aPerS, 1e-3));
+    th3El.textContent = fmtDur(timeToThreshold(y0f, aPerS, 1e-2));
+
+    var pts = [];
+    var N = 120;
+    for (var i = 0; i <= N; i++) {
+      var td = tDays * i / N;
+      var ts = td * 86400;
+      pts.push([td, y0f * ts + aPerS * ts * ts / 2]);
+    }
+    curveBox.innerHTML = svgCurve(pts, tDays);
+  }
+
+  document.querySelectorAll(".presets button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      agingEl.value = b.getAttribute("data-a");
+      calc();
+    });
+  });
+  [y0El, agingEl, tvalEl].forEach(function (el) { el.addEventListener("input", calc); });
+  tunitEl.addEventListener("change", calc);
+  calc();
+})();
+</script>
+</body>
+</html>
